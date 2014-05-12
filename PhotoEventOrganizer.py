@@ -8,6 +8,8 @@ from VideoDate import video_creation_date
 # import sys
 from operator import itemgetter
 import hashlib
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 
 
 def same_group(elem1, elem2, gap):
@@ -72,7 +74,6 @@ def duplicated(img1, img2):
     Calculates duplicated image by hash
 
     """
-    print "IN duplicated!!!! ******+"
     image_file_1 = open(img1).read()
     hex1 = hashlib.md5(image_file_1).hexdigest()
     image_file_2 = open(img2).read()
@@ -82,7 +83,7 @@ def duplicated(img1, img2):
 
 
 
-def main(gap, folders, destfolder):
+def main(gap, folders, destfolder, loose_size=3):
     filelist = []
     for folder in folders:
         if folder[-1] != "/":
@@ -98,7 +99,7 @@ def main(gap, folders, destfolder):
 
     for elem in filelist[1:]:
         time = elem[1]
-        filename = elem[0]
+        #filename = elem[0]
 
         # Compare with other elements
         classified = False
@@ -139,20 +140,40 @@ def main(gap, folders, destfolder):
         if not exists(destfolder):
             makedirs(destfolder)
 
-        #Move files
-        for photo in groups[g]:
-            name = photo[0]
-            folder = photo[2]
-            if name in listdir(newpath):
-                if duplicated(newpath+name, folder + name):
-                    # Create folder duplicated
-                    if not exists(newpath + "duplicated/"):
-                        makedirs(newpath + "duplicated/")
-                    name = "duplicated/" + name
-                else:
-                    name += "-1"
+        # TODO Loose photos support
+        if len(groups[g]) <= loose_size:
+            #plot images
+            size = len(groups[g])
+            plt.clf()
+            fig = plt.figure()
+            i = 0
+            for photo in groups[g]:
+                name = photo[0]
+                folder = photo[2]
+                if ".mp4" in name:
+                    continue
+                i += 1
+                a = fig.add_subplot(1, size, i)
+                print folder + name
+                img = mpimg.imread(folder + name)
+                imgplot = plt.imshow(img)
+                a.set_title("Photo " + str(i))
+            plt.show()
 
-            rename(folder + photo[0], newpath + name)
+        #Move files
+        # for photo in groups[g]:
+        #     name = photo[0]
+        #     folder = photo[2]
+        #     if name in listdir(newpath):
+        #         if duplicated(newpath+name, folder + name):
+        #             # Create folder duplicated
+        #             if not exists(newpath + "duplicated/"):
+        #                 makedirs(newpath + "duplicated/")
+        #             name = "duplicated/" + name
+        #         else:
+        #             name += "-1"
+        #
+        #     rename(folder + photo[0], newpath + name)
     #print i
 
 if __name__ == "__main__":
@@ -161,4 +182,4 @@ if __name__ == "__main__":
     # folders = ["/media/Datos/Google Drive/Fotos LG G2/"]
     folders = ["TestPhotos/", "TestPhotos/duplicatedtest"]
     destfolder = "TestPhotos/classified/"
-    main(gap, folders, destfolder)
+    # main(gap, folders, destfolder)
