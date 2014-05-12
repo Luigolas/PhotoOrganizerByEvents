@@ -7,6 +7,7 @@ from os.path import isfile, join, exists
 from VideoDate import video_creation_date
 # import sys
 from operator import itemgetter
+import hashlib
 
 
 def same_group(elem1, elem2, gap):
@@ -66,9 +67,26 @@ def create_filelist(folder, files):
     return filelist
 
 
+def duplicated(img1, img2):
+    """
+    Calculates duplicated image by hash
+
+    """
+    print "IN duplicated!!!! ******+"
+    image_file_1 = open(img1).read()
+    hex1 = hashlib.md5(image_file_1).hexdigest()
+    image_file_2 = open(img2).read()
+    hex2 = hashlib.md5(image_file_2).hexdigest()
+    return hex1 == hex2
+
+
+
+
 def main(gap, folders, destfolder):
     filelist = []
     for folder in folders:
+        if folder[-1] != "/":
+            folder += "/"
         files = [filename for filename in listdir(folder) if isfile(join(folder, filename)) & valid_format(filename)]
         filelist.extend(create_filelist(folder, files))
 
@@ -105,27 +123,42 @@ def main(gap, folders, destfolder):
                 groups[dateformated(time)] = [elem]
 
     print "Number of groups: " + str(len(groups.keys()))
-    for x in sorted(groups.keys()):
-        print x
+    # for x in sorted(groups.keys()):
+    #     print x
 
     # Folder Creation
-    i = 0
+    #i = 0
     for g in groups:
-        i += len(groups[g])
+        #i += len(groups[g])
         newpath = destfolder + g + "/"
         if not exists(newpath):
             makedirs(newpath)
         else:
             print newpath + " not created ***"
 
+        if not exists(destfolder):
+            makedirs(destfolder)
+
         #Move files
         for photo in groups[g]:
-           rename(photo[2] + photo[0], newpath + photo[0])
-    print i
+            name = photo[0]
+            folder = photo[2]
+            if name in listdir(newpath):
+                if duplicated(newpath+name, folder + name):
+                    # Create folder duplicated
+                    if not exists(newpath + "duplicated/"):
+                        makedirs(newpath + "duplicated/")
+                    name = "duplicated/" + name
+                else:
+                    name += "-1"
+
+            rename(folder + photo[0], newpath + name)
+    #print i
 
 if __name__ == "__main__":
     gap = timedelta(hours=5)
-    #folder = "TestPhotos/"
-    folders = ["/media/Datos/Google Drive/Fotos LG G2/"]
-    destfolder = "/media/Datos/Google Drive/Fotos LG G2/"
+    # folder = "TestPhotos/"
+    # folders = ["/media/Datos/Google Drive/Fotos LG G2/"]
+    folders = ["TestPhotos/", "TestPhotos/duplicatedtest"]
+    destfolder = "TestPhotos/classified/"
     main(gap, folders, destfolder)
