@@ -10,6 +10,7 @@ from operator import itemgetter
 import hashlib
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+import PhevorGUi as phevo
 
 
 def same_group(elem1, elem2, gap):
@@ -22,23 +23,36 @@ def dateformated(date):
 
 
 def valid_format(elem):
-    return (".jpg" in elem) or (".mp4" in elem)
+    return image_format(elem) or video_format(elem)
+
+
+def image_format(elem):
+    return (".jpg" in elem) or (".JPG" in elem)
+
+
+def video_format(elem):
+    return (".mp4" in elem) or (".MP4" in elem)
+    #TODO Admit mpg format
+           #  (".MPG" in elem) or (".mpg" in elem)
 
 
 def read_date(elem):
-    if ".jpg" in elem:
+    if image_format(elem):
         metadata = pyexiv2.ImageMetadata(elem)
         metadata.read()
         keys = metadata.exif_keys
-        if 'Exif.Photo.DateTimeOriginal' in keys:
-            return metadata['Exif.Photo.DateTimeOriginal'].value
+
+        if 'Exif.Image.DateTime' in keys:
+            return metadata['Exif.Image.DateTime'].value
         elif "Exif.Image.DateTimeOriginal" in keys:
             return metadata['Exif.Image.DateTimeOriginal'].value
-        elif 'Exif.Image.DateTime' in keys:
-            return metadata['Exif.Image.DateTime'].value
+        elif 'Exif.Photo.DateTimeOriginal' in keys:
+            return metadata['Exif.Photo.DateTimeOriginal'].value
+        elif 'Exif.Photo.DateTimeDigitized':
+            return metadata['Exif.Photo.DateTimeDigitized'].value
         else:
             print elem + " - " + str(metadata.exif_keys)
-    elif ".mp4" in elem:
+    elif video_format(elem):
         return video_creation_date(elem)
     else:
         print "Not recognized"
@@ -83,13 +97,17 @@ def duplicated(img1, img2):
 
 
 
-def main(gap, folders, destfolder, loose_size=3):
+def main(gap, folders, destfolder, loose_size=3, simulated=True):
     filelist = []
     for folder in folders:
         if folder[-1] != "/":
             folder += "/"
+
+        print "Reading folder " + folder
+
         files = [filename for filename in listdir(folder) if isfile(join(folder, filename)) & valid_format(filename)]
         filelist.extend(create_filelist(folder, files))
+    filelist.sort(key=itemgetter(1))
 
     # First Element
     elem = filelist[0]
@@ -124,62 +142,69 @@ def main(gap, folders, destfolder, loose_size=3):
                 groups[dateformated(time)] = [elem]
 
     print "Number of groups: " + str(len(groups.keys()))
-    # for x in sorted(groups.keys()):
-    #     print x
+    for x in sorted(groups.keys()):
+        print x + ": " + str(len(groups[x]))
 
     # Folder Creation
-    #i = 0
+    i = 0
     for g in groups:
-        #i += len(groups[g])
-        newpath = destfolder + g + "/"
-        if not exists(newpath):
-            makedirs(newpath)
-        else:
-            print newpath + " not created ***"
+        i += len(groups[g])
+        #TODO Resolve in case destfolder don't end in /
+        #TODO Some times more files processed than there are ?
+        if not simulated:
+            newpath = destfolder + g + "/"
+            if not exists(newpath):
+                makedirs(newpath)
+            else:
+                # print newpath + " not created ***"
+                pass
 
-        if not exists(destfolder):
-            makedirs(destfolder)
+            if not exists(destfolder):
+                makedirs(destfolder)
 
-        # TODO Loose photos support
-        if len(groups[g]) <= loose_size:
-            #plot images
-            size = len(groups[g])
-            plt.clf()
-            fig = plt.figure()
-            i = 0
+            # # TODO Loose photos support
+            # if len(groups[g]) <= loose_size:
+            #     #plot images
+            #     size = len(groups[g])
+            #     i = 0
+            #     pics = []
+            #     for photo in groups[g]:
+            #         name = photo[0]
+            #         folder = photo[2]
+            #         if ".mp4" in name:
+            #             continue
+            #         pics.append(folder + name)
+            #     print pics
+            #     if len(pics) > 0:
+            #         phevo.show_pics(pics)
+
+            #Move files
             for photo in groups[g]:
                 name = photo[0]
                 folder = photo[2]
-                if ".mp4" in name:
-                    continue
-                i += 1
-                a = fig.add_subplot(1, size, i)
-                print folder + name
-                img = mpimg.imread(folder + name)
-                imgplot = plt.imshow(img)
-                a.set_title("Photo " + str(i))
-            plt.show()
-
-        #Move files
-        # for photo in groups[g]:
-        #     name = photo[0]
-        #     folder = photo[2]
-        #     if name in listdir(newpath):
-        #         if duplicated(newpath+name, folder + name):
-        #             # Create folder duplicated
-        #             if not exists(newpath + "duplicated/"):
-        #                 makedirs(newpath + "duplicated/")
-        #             name = "duplicated/" + name
-        #         else:
-        #             name += "-1"
-        #
-        #     rename(folder + photo[0], newpath + name)
-    #print i
+                if name in listdir(newpath):
+                    if duplicated(newpath+name, folder + name):
+                        # Create folder duplicated
+                        if not exists(newpath + "duplicated/"):
+                            makedirs(newpath + "duplicated/")
+                        name = "duplicated/" + name
+                    else:
+                        name += "-1"
+                rename(folder + photo[0], newpath + name)
+    print i
 
 if __name__ == "__main__":
     gap = timedelta(hours=5)
     # folder = "TestPhotos/"
     # folders = ["/media/Datos/Google Drive/Fotos LG G2/"]
-    folders = ["TestPhotos/", "TestPhotos/duplicatedtest"]
-    destfolder = "TestPhotos/classified/"
-    # main(gap, folders, destfolder)
+    # folders = ["TestPhotos/", "TestPhotos/duplicatedtest"]
+    # destfolder = "TestPhotos/classified/"
+    destfolder = "/media/Datos/Google Drive/Fotos con Osita/Viaje La Gomera La Palma/"
+    folders = ["/media/Datos/Fotos La Gomera y La Palma/premislav",
+               "/media/Datos/Fotos La Gomera y La Palma/Lilah",
+               "/media/Datos/Fotos La Gomera y La Palma/Gosia",
+               "/media/Datos/Google Drive/Fotos con Osita/Viaje La Gomera La Palma"
+               ]
+
+    main(gap, folders, destfolder, simulated=False)
+
