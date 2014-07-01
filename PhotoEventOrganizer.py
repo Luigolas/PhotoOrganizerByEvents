@@ -1,3 +1,5 @@
+import os
+
 __author__ = 'luigolas'
 import pyexiv2
 from datetime import timedelta
@@ -10,7 +12,7 @@ from operator import itemgetter
 import hashlib
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
-import PhevorGUi as phevo
+#import PhevorGUi as phevo
 
 
 def same_group(elem1, elem2, gap):
@@ -36,6 +38,16 @@ def video_format(elem):
            #  (".MPG" in elem) or (".mpg" in elem)
 
 
+def read_all_dates(elem):
+    if image_format(elem):
+        metadata = pyexiv2.ImageMetadata(elem)
+        metadata.read()
+        keys = metadata.exif_keys
+        for key in keys:
+            if "time" in key.lower() or "date" in key.lower():
+                print key + ": " + str(metadata[key].value)
+
+
 def read_date(elem):
     if image_format(elem):
         metadata = pyexiv2.ImageMetadata(elem)
@@ -48,7 +60,7 @@ def read_date(elem):
             return metadata['Exif.Image.DateTimeOriginal'].value
         elif 'Exif.Photo.DateTimeOriginal' in keys:
             return metadata['Exif.Photo.DateTimeOriginal'].value
-        elif 'Exif.Photo.DateTimeDigitized':
+        elif 'Exif.Photo.DateTimeDigitized'in keys:
             return metadata['Exif.Photo.DateTimeDigitized'].value
         else:
             print elem + " - " + str(metadata.exif_keys)
@@ -69,17 +81,27 @@ def pick_sooner(elemlist):
     return sooner_time
 
 
-def create_filelist(folder, files):
+def create_filelist(folders):
     """
 
     :rtype : list
     """
-    filelist=[]
-    for f in files:
-        time = read_date(folder + f)
-        filelist.append([f, time, folder])
 
-    filelist.sort(key=itemgetter(1))
+    filelist = []
+    for folder in folders:
+        if folder[-1] != "/":
+            folder += "/"
+
+        print "Reading folder " + folder
+        for path, subdirs, files in os.walk(folder):
+            files = [f for f in files if not f[0] == '.']
+            subdirs[:] = [d for d in subdirs if not d[0] == '.']
+            for filename in files:
+                if valid_format(filename):
+                    time = read_date(os.path.join(path, filename))
+                    filelist.append([filename, time, path+"/"])
+        filelist.sort(key=itemgetter(1))
+
     return filelist
 
 
@@ -95,25 +117,13 @@ def duplicated(img1, img2):
     return hex1 == hex2
 
 
-
-
 def main(gap, folders, destfolder, loose_size=3, simulated=True):
-    filelist = []
-    for folder in folders:
-        if folder[-1] != "/":
-            folder += "/"
-
-        print "Reading folder " + folder
-
-        files = [filename for filename in listdir(folder) if isfile(join(folder, filename)) & valid_format(filename)]
-        filelist.extend(create_filelist(folder, files))
-    filelist.sort(key=itemgetter(1))
+    filelist = create_filelist(folders)
+    print "Number of files: " + str(len(filelist))
 
     # First Element
     elem = filelist[0]
     groups = {dateformated(elem[1]): [elem]}
-
-    print "Number of files: " + str(len(filelist))
 
     for elem in filelist[1:]:
         time = elem[1]
@@ -145,11 +155,12 @@ def main(gap, folders, destfolder, loose_size=3, simulated=True):
     for x in sorted(groups.keys()):
         print x + ": " + str(len(groups[x]))
 
+    if destfolder[-1] != "/":
+        destfolder += "/"
     # Folder Creation
     i = 0
     for g in groups:
         i += len(groups[g])
-        #TODO Resolve in case destfolder don't end in /
         #TODO Some times more files processed than there are ?
         if not simulated:
             newpath = destfolder + g + "/"
@@ -183,13 +194,19 @@ def main(gap, folders, destfolder, loose_size=3, simulated=True):
                 name = photo[0]
                 folder = photo[2]
                 if name in listdir(newpath):
-                    if duplicated(newpath+name, folder + name):
+                    if duplicated(newpath+name, folder+name):
                         # Create folder duplicated
+                        #TODO Really useful??
                         if not exists(newpath + "duplicated/"):
                             makedirs(newpath + "duplicated/")
                         name = "duplicated/" + name
+                        print "Duplicated in", newpath + name
                     else:
                         name += "-1"
+                        #Make sure the name is not taken already
+                        while name in listdir(newpath):
+                            name += "-1"
+
                 rename(folder + photo[0], newpath + name)
     print i
 
@@ -199,12 +216,26 @@ if __name__ == "__main__":
     # folders = ["/media/Datos/Google Drive/Fotos LG G2/"]
     # folders = ["TestPhotos/", "TestPhotos/duplicatedtest"]
     # destfolder = "TestPhotos/classified/"
-    destfolder = "/media/Datos/Google Drive/Fotos con Osita/Viaje La Gomera La Palma/"
-    folders = ["/media/Datos/Fotos La Gomera y La Palma/premislav",
-               "/media/Datos/Fotos La Gomera y La Palma/Lilah",
-               "/media/Datos/Fotos La Gomera y La Palma/Gosia",
-               "/media/Datos/Google Drive/Fotos con Osita/Viaje La Gomera La Palma"
-               ]
+    # destfolder = "/media/Datos/Google Drive/Fotos con Osita/Viaje La Gomera La Palma/"
+    # folders = ["/media/Datos/Fotos La Gomera y La Palma/premislav",
+    #            "/media/Datos/Fotos La Gomera y La Palma/Lilah",
+    #            "/media/Datos/Fotos La Gomera y La Palma/Gosia",
+    #            "/media/Datos/Google Drive/Fotos con Osita/Viaje La Gomera La Palma"
+    #            ]
 
+    #destfolder = "/home/luigolas/Fotos LG G2 temp temp/Result/"
+    #folders = ["/home/luigolas/PycharmProjects/PyPhoto/"]
+    destfolder = "/media/luigolas/TeresitoDrive/Fotos LG G2 Result/"
+    folders = ["/media/luigolas/TeresitoDrive/Fotos LG G2/",
+               "/media/luigolas/TeresitoDrive/Fotos LG G2 tal",
+               "/media/luigolas/TeresitoDrive/Fotos LG G2 temp",
+               "/media/luigolas/TeresitoDrive/LG G2 TEMP"]
     main(gap, folders, destfolder, simulated=False)
-
+    # folder = "/media/Datos/teeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeemp/Fotos La Gomera y La Palma/premislav/"
+    # # folder = "/media/Datos/teeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeemp/Fotos La Gomera y La Palma/Lilah/"
+    # # folder = "/media/Datos/teeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeemp/Fotos La Gomera y La Palma/Gosia/"
+    # # folder = "/media/Datos/teeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeemp/Viaje La Gomera La Palma/"
+    # files = [filename for filename in listdir(folder) if isfile(join(folder, filename)) & valid_format(filename)]
+    # files = create_filelist(folder, files)
+    # elem = files[1]
+    # read_all_dates(elem[2]+elem[0])
